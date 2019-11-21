@@ -14,3 +14,9 @@ But, since a typical user will also want to retrain the model, they will need a 
  * Make a python package of the project, with train and run cli commands [4]
  * write a howto on how to install the environment on Linux, Windows and MacOS for training [4]
  * Write a howto on how to install the environment on a raspberry pi (using berryconda) and how to use a self-trained model [4]
+
+## Installation on Raspberry pi
+
+ * Install [berryconda](https://github.com/jjhelmus/berryconda)
+ * copy distribute_to_pi files
+ * 
