@@ -2,5 +2,8 @@ data/*
 Eigen geluiden/*
 .vscode/*
 __pycache__/*
+*/__pycache__/*
 sound recognition tool v2.txt
 mytodo.md
+*.h5
+*.zip

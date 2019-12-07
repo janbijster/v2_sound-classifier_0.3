@@ -133,3 +133,13 @@ Then the accuracy for tire screeches is slightly lower, at 0.64:
 That's not enough. The accuracy for tire screeches then drops to 0.31:
 
 ![Confusion matrix tire screech 30 recordings](results/model-with-tire-screech-10.png)
+
+## Step 4. Distributing the project
+
+### Step 4.1 How to distribute
+
+We would like to make it as easy as possible to:
+ 1. Download the scripts and dataset and train on own samples
+ 2. Deploy the trained model to a raspberry pi
+
+For part 1, the user needs to have a python environment with the required libraries.

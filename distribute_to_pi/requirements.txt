@@ -1,0 +1,5 @@
+audioread==2.1.8
+Keras
+tensorflow
+Pillow
+sounddevice

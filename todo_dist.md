@@ -18,5 +18,16 @@ But, since a typical user will also want to retrain the model, they will need a 
 ## Installation on Raspberry pi
 
  * Install [berryconda](https://github.com/jjhelmus/berryconda)
- * copy distribute_to_pi files
+ * copy `distribute_to_pi` files
+ * open a terminal, `cd` to the `distribute_to_pi` dir
+ * Installed `numba` with [these steps](http://numba.pydata.org/numba-doc/latest/user/installing.html#installing-on-linux-armv8-aarch64-platforms)
+ * Create venv: `conda create -n soundenv`
+ * Activate venv: `source activate soundenv`
+ * Install numpy and scipy using conda: (Not sure if this is necessary but installing with pip took very long) `conda install numpy scipy`
+ * Install/update pip in the environment: `conda install pip`
+ * Install requirements:
+    ```
+    pip install -r requirements.txt
+    ```
+    This step took ~10 min
  * 
