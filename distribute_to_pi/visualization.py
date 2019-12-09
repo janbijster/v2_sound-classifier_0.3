@@ -1,24 +1,16 @@
 from matplotlib import pyplot as plt
 import numpy as np
+from platform import system
 
-
-def running_mean(x, n):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    return (cumsum[n:] - cumsum[:-n]) / float(n)
-
-def audio_volume (recording, smoothing_n=1000):
-    volumes = 20 * np.log10(np.abs(recording) + 0.01)
-    if smoothing_n > 0:
-        volumes = running_mean(volumes, smoothing_n)
-    return volumes.flatten()
 
 def initialize_visualizations():
     fig, axes = plt.subplots(2, 2)
     plt.ion()
+    maximize_window()
     plt.show()
     return (fig, axes)
 
-def update_visualizations(fig, axes, recording, spectrogram, probabilities, class_names, volume_threshold, sample_length):
+def update_visualizations(fig, axes, volumes, spectrogram, probabilities, class_names, volume_threshold, sample_length):
     # Top 5
     top_n = 5
     probabilities_classes_sorted = [(name, proba) for proba, name in sorted(zip(probabilities, class_names), reverse=True)]
@@ -46,11 +38,12 @@ def update_visualizations(fig, axes, recording, spectrogram, probabilities, clas
     axes[0, 1].tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
 
     # Volume
-    volumes = audio_volume(recording.flatten())
     xrange = np.linspace(0, sample_length, volumes.shape[0])
     axes[1, 0].clear()
-    axes[1, 0].set_title('Volume')
-    axes[1, 0].plot(xrange, volumes)
+    axes[1, 0].set_title('Volume', color='#0033ee')
+    axes[1, 0].plot(xrange, volumes, label='Volume over time')
+    axes[1, 0].axhline(y=volume_threshold, linewidth=2, color='#ee0033', label='Volume threshold')
+    axes[1, 0].legend()
 
     # Spectrogram
     axes[1, 1].clear()
@@ -58,5 +51,24 @@ def update_visualizations(fig, axes, recording, spectrogram, probabilities, clas
     axes[1, 1].imshow(spectrogram.reshape((128, 128)))
 
     plt.draw()
-    plt.pause(0.9 * sample_length)
+    plt.pause(0.01)
 
+def maximize_window():
+    # See discussion: https://stackoverflow.com/questions/12439588/how-to-maximize-a-plt-show-window-using-python
+    backend = plt.get_backend()
+    cfm = plt.get_current_fig_manager()
+    if backend == "wxAgg":
+        cfm.frame.Maximize(True)
+    elif backend == "TkAgg":
+        if system() == "win32":
+            cfm.window.state('zoomed')  # This is windows only
+        else:
+            cfm.resize(*cfm.window.maxsize())
+    elif backend == 'QT4Agg':
+        cfm.window.showMaximized()
+    elif callable(getattr(cfm, "full_screen_toggle", None)):
+        if not getattr(cfm, "flag_is_max", None):
+            cfm.full_screen_toggle()
+            cfm.flag_is_max = True
+    else:
+        print('Couldn\'t maximize window, unknown pyplot backend {}'.format(backend))
