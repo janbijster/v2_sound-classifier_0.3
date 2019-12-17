@@ -2,6 +2,7 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Button
 import numpy as np
 from platform import system
+import time
 
 
 def initialize_visualizations():
@@ -12,6 +13,8 @@ def initialize_visualizations():
     return (fig, axes)
 
 def update_visualizations(fig, axes, volumes, spectrogram, probabilities, class_names, volume_threshold, sample_length, stop_fun, record_fun, is_recording):
+    tic = time.time()
+
     # Top 5
     top_n = 5
     probabilities_classes_sorted = [(name, proba) for proba, name in sorted(zip(probabilities, class_names), reverse=True)]
@@ -65,11 +68,11 @@ def update_visualizations(fig, axes, volumes, spectrogram, probabilities, class_
 
     plt.draw()
     dt = 0.25
-    t = 0
+    t = time.time() - tic
     while t < 0.9 * sample_length:
         fig.suptitle('Perdicted class: {}. New sample in {:.0f}...'.format(classes_sorted[0], sample_length - t))
         plt.pause(dt)
-        t += dt
+        t = time.time() - tic
 
 
 def maximize_window():

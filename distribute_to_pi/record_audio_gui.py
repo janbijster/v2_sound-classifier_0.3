@@ -15,8 +15,6 @@ from visualization_utils import initialize_visualizations, update_visualizations
 import librosa
 from PIL import Image
 import sys
-import threading
-from threading_utils import ThreadWithReturnValue
 from utils import datetime_string, audio_volume
 try:
     from pydub import AudioSegment
@@ -61,7 +59,7 @@ with open(args.classes) as f:
 
 
 # functions
-def start_recording(event, force=False):
+def start_storing(event, force=False):
     global store_sounds, store_session, class_names, args
     if not store_sounds or force:
         store_session = {}
@@ -83,7 +81,7 @@ def start_recording(event, force=False):
 def stop_all(event):
     sys.exit()
 
-def record_thread_function(sd, num_samples, recordings):
+def record_function(sd, num_samples, recordings):
     current_recording = sd.rec(num_samples + trim_recording_start_samples)
     sd.wait()
     current_recording = current_recording[trim_recording_start_samples:, :]
@@ -124,15 +122,14 @@ def main():
         class_names = json.load(f)
 
     if store_sounds:
-        start_recording(None, force=True)
+        start_storing(None, force=True)
 
 
     # start recording
     recordings = []
 
     while True:
-        record_thread = ThreadWithReturnValue(target=record_thread_function, args=(sd, num_samples, recordings))
-        record_thread.start()
+        current_recording = sd.rec(num_samples + trim_recording_start_samples)
         
         for recording_index, recording in enumerate(recordings):
             # process both the new recording and the overlap with the previous
@@ -176,12 +173,23 @@ def main():
                     volumes, spectrogram_array,
                     predictions, class_names,
                     args.threshold, sample_length_sec,
-                    stop_all, start_recording,
+                    stop_all, start_storing,
                     store_sounds
                 )
 
         # wait for recording to finish:
-        recordings = record_thread.join()
+        sd.wait()
+        # trim beginning:
+        current_recording = current_recording[trim_recording_start_samples:, :]
+        # set up recording for next loop:
+        # if there is already a recording, then store also the overlap with the previous one:
+        if len(recordings) != 0:
+            previous_recording = recordings[-1]
+            overlap_samples = int(0.5 * num_samples)
+            overlap_recording = np.vstack((previous_recording[overlap_samples:], current_recording[:overlap_samples]))
+            recordings = [overlap_recording, current_recording]
+        else:
+            recordings = [current_recording]
 
 if __name__ == "__main__":
     main()

@@ -58,7 +58,7 @@ with open(args.classes) as f:
 
 
 # functions
-def start_recording(event, force=False):
+def start_storing(event, force=False):
     global store_sounds, store_session, class_names, args
     if not store_sounds or force:
         store_session = {}
@@ -116,7 +116,7 @@ def main():
         class_names = json.load(f)
 
     if store_sounds:
-        start_recording(None, force=True)
+        start_storing(None, force=True)
 
 
     # start recording
