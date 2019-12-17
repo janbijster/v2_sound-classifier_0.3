@@ -11,26 +11,34 @@ from glob import glob
 import os
 import json
 import argparse
-from visualization import initialize_visualizations, update_visualizations
-from datetime import datetime, timedelta
+from visualization_utils import initialize_visualizations, update_visualizations
 import librosa
 from PIL import Image
 import sys
 import threading
 from threading_utils import ThreadWithReturnValue
+from utils import datetime_string, audio_volume
+try:
+    from pydub import AudioSegment
+    can_use_pydub = True
+except (FileNotFoundError, ModuleNotFoundError) as e:
+    print('Either pydub, ffmpeg or libav not installed. Storing sounds as wav.')
+    can_use_pydub = False
 
 
 # constants and default arguments
 sample_rate = 22050
 sample_length_sec = 4
 check_interval = 0.5
-default_model_path = 'models/model-wrap.h5'
-default_class_names_file = 'class_names_initial.json'
+default_model_path = 'models/model-with-tire-screech.h5'
+default_class_names_file = 'class_names.json'
 default_volume_threshold = -30
 default_sound_store_location = 'stored/'
+trim_recording_start_seconds = 0.2 # trim recording inital click
 
 # computed constants
 num_samples = int(sample_length_sec * sample_rate)
+trim_recording_start_samples = int(trim_recording_start_seconds * sample_rate)
 
 
 # command line arguments
@@ -44,34 +52,15 @@ parser.add_argument('-s', '--store', default='n',
 parser.add_argument('-t', '--threshold', default=default_volume_threshold,
     help='The volume threshold above which sounds will be stored if store is enabled. (number, default: {})'.format(default_volume_threshold))
 parser.add_argument('-l', '--location', default=default_sound_store_location,
-    help='The location where to store sounds if store is enaabled. (default: {})'.format(default_sound_store_location))
+    help='The location where to store sounds if store is enabled. (default: {})'.format(default_sound_store_location))
 args = parser.parse_args()
 store_sounds = args.store.lower() == 'y'
-
 # get class names
 with open(args.classes) as f:
     class_names = json.load(f)
 
+
 # functions
-def num_nonzero_elements(arr):
-    return len(np.nonzero(arr)[0])
-
-def is_filled(arr):
-    return num_nonzero_elements(arr) == len(arr)
-
-def datetime_string(add_seconds=0):
-    return (datetime.today() + timedelta(seconds=add_seconds)).strftime('%Y-%m-%d_%H-%M-%S')
-
-def running_mean(x, n):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    return (cumsum[n:] - cumsum[:-n]) / float(n)
-
-def audio_volume (recording, smoothing_n=1000):
-    volumes = 20 * np.log10(np.abs(recording) + 0.01)
-    if smoothing_n > 0:
-        volumes = running_mean(volumes, smoothing_n)
-    return volumes.flatten()
-
 def start_recording(event, force=False):
     global store_sounds, store_session, class_names, args
     if not store_sounds or force:
@@ -95,8 +84,9 @@ def stop_all(event):
     sys.exit()
 
 def record_thread_function(sd, num_samples, recordings):
-    current_recording = sd.rec(num_samples)
+    current_recording = sd.rec(num_samples + trim_recording_start_samples)
     sd.wait()
+    current_recording = current_recording[trim_recording_start_samples:, :]
     # if there is already a recording, then store also the overlap with the previous one:
     if len(recordings) != 0:
         previous_recording = recordings[-1]
@@ -106,6 +96,7 @@ def record_thread_function(sd, num_samples, recordings):
     else:
         recordings = [current_recording]
     return recordings
+
 
 # main
 def main():
@@ -162,15 +153,23 @@ def main():
                     sound_info['probabilities'] = predictions
                     sound_info['predictions_sorted'] = class_predictions_sorted
                     sound_info['name'] = '{}_{}'.format(datetime_string(recording_index * sample_length_sec), sound_info['predicted_class'])
-                    sound_info['audio_filepath'] = os.path.join(store_session['folder'], '{}.wav'.format(sound_info['name']))
+                    
+                    # save sound file:
+                    sound_file = os.path.join(store_session['folder'], sound_info['name'])
+                    sound_info['audio_filepath'] = sound_file + '.wav'
                     librosa.output.write_wav(sound_info['audio_filepath'], recording, sample_rate)
+                    # convert to mp3 if pydub (and ffmpeg or libav) is installed:
+                    if can_use_pydub:
+                        audio_segment = AudioSegment.from_file(sound_info['audio_filepath'], format='wav')
+                        os.remove(sound_info['audio_filepath'])
+                        sound_info['audio_filepath'] = sound_file + '.mp3'
+                        audio_segment.export(sound_info['audio_filepath'], format='mp3')
                     
                     store_session['sounds'].append(sound_info)
                     with open(store_session['json_filepath'], 'w') as f:
                         json.dump(store_session, f, indent=4)
 
             # visualize only the new recording
-            print('{}m {}'.format(recording_index, len(recordings)-1))
             if recording_index == len(recordings) - 1:
                 update_visualizations(
                     fig, axes,

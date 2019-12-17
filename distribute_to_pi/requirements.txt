@@ -3,3 +3,4 @@ Keras
 tensorflow
 Pillow
 sounddevice
+pydub

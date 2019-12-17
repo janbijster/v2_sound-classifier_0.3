@@ -43,6 +43,18 @@ If the output has `berryconda` in the path (e.g. `/home/pi/berryconda3/bin/pip`)
 #### 1.2.3 other packages
 Now we can install the rest of the dependencies:
 ```shell
-pip install librosa Keras==2.2.4 tensorflow==1.13.1 Pillow
+pip install librosa Keras==2.2.4 tensorflow==1.13.1 Pillow pydub
 ```
 (It may work with other versions of Keras and tensorflow as well, but these ones are tested.)
+
+## 2. Other tools
+For mp3 support we need ffmpeg or libav
+```shell
+# libav
+apt-get install libav-tools libavcodec-extra
+
+####    OR    #####
+
+# ffmpeg
+apt-get install ffmpeg libavcodec-extra
+```
