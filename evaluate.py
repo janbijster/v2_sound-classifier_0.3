@@ -23,7 +23,7 @@ if True:
 # default data folder
 data_folder = './data/spectrograms-test'
 models_folder = './models'
-model_name = 'model-with-tire-screech-10'
+model_name = 'model-with-tire-screech'
 
 # script
 parser = argparse.ArgumentParser()

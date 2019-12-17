@@ -38,13 +38,12 @@ plt.axis()
 plt.ion()
 plt.show()
 # For GPU training only
-if True:
+if len(K.tensorflow_backend._get_available_gpus()) > 0:
     import tensorflow as tf
     from keras.backend.tensorflow_backend import set_session
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
     config.log_device_placement = False  # to log device placement (on which device the operation ran)
-                                        # (nothing gets printed in Jupyter, only if you run it standalone)
     sess = tf.Session(config=config)
     set_session(sess)  # set this TensorFlow session as the default session for Keras
 # load model

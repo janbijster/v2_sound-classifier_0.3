@@ -8,3 +8,4 @@ mytodo.md
 *.h5
 *.zip
 distribute_to_pi/stored/*
+docs/*

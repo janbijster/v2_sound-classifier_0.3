@@ -1,16 +1,17 @@
 from matplotlib import pyplot as plt
+from matplotlib.widgets import Button
 import numpy as np
 from platform import system
 
 
 def initialize_visualizations():
-    fig, axes = plt.subplots(2, 2)
+    fig, axes = plt.subplots(2, 3)
     plt.ion()
     maximize_window()
     plt.show()
     return (fig, axes)
 
-def update_visualizations(fig, axes, volumes, spectrogram, probabilities, class_names, volume_threshold, sample_length):
+def update_visualizations(fig, axes, volumes, spectrogram, probabilities, class_names, volume_threshold, sample_length, stop_fun, record_fun, is_recording):
     # Top 5
     top_n = 5
     probabilities_classes_sorted = [(name, proba) for proba, name in sorted(zip(probabilities, class_names), reverse=True)]
@@ -50,8 +51,26 @@ def update_visualizations(fig, axes, volumes, spectrogram, probabilities, class_
     axes[1, 1].set_title('Spectrogram')
     axes[1, 1].imshow(spectrogram.reshape((128, 128)))
 
+    # Buttons
+    axes[0, 2].clear()
+    axes[1, 2].clear()
+    
+    btn_stop = Button(axes[0, 2], 'Stop')
+    btn_stop.on_clicked(stop_fun)
+    if is_recording:
+        btn_record = Button(axes[1, 2], 'Recording...')
+    else:
+        btn_record = Button(axes[1, 2], 'Record')
+        btn_record.on_clicked(record_fun)
+
     plt.draw()
-    plt.pause(0.01)
+    dt = 0.25
+    t = 0
+    while t < 0.9 * sample_length:
+        fig.suptitle('Perdicted class: {}. New sample in {:.0f}...'.format(classes_sorted[0], sample_length - t))
+        plt.pause(dt)
+        t += dt
+
 
 def maximize_window():
     # See discussion: https://stackoverflow.com/questions/12439588/how-to-maximize-a-plt-show-window-using-python

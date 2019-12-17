@@ -12,23 +12,25 @@ import os
 import json
 import argparse
 from visualization import initialize_visualizations, update_visualizations
-from datetime import datetime
+from datetime import datetime, timedelta
 import librosa
 from PIL import Image
 import sys
+import threading
+from threading_utils import ThreadWithReturnValue
 
 
 # constants and default arguments
 sample_rate = 22050
 sample_length_sec = 4
 check_interval = 0.5
-default_model_path = 'models/model-with-tire-screech.h5'
-default_class_names_file = 'class_names.json'
+default_model_path = 'models/model-wrap.h5'
+default_class_names_file = 'class_names_initial.json'
 default_volume_threshold = -30
 default_sound_store_location = 'stored/'
+
 # computed constants
 num_samples = int(sample_length_sec * sample_rate)
-overlap_samples = int(0.5 * num_samples)
 
 
 # command line arguments
@@ -57,8 +59,8 @@ def num_nonzero_elements(arr):
 def is_filled(arr):
     return num_nonzero_elements(arr) == len(arr)
 
-def datetime_string():
-    return datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
+def datetime_string(add_seconds=0):
+    return (datetime.today() + timedelta(seconds=add_seconds)).strftime('%Y-%m-%d_%H-%M-%S')
 
 def running_mean(x, n):
     cumsum = np.cumsum(np.insert(x, 0, 0)) 
@@ -92,11 +94,25 @@ def start_recording(event, force=False):
 def stop_all(event):
     sys.exit()
 
+def record_thread_function(sd, num_samples, recordings):
+    current_recording = sd.rec(num_samples)
+    sd.wait()
+    # if there is already a recording, then store also the overlap with the previous one:
+    if len(recordings) != 0:
+        previous_recording = recordings[-1]
+        overlap_samples = int(0.5 * num_samples)
+        overlap_recording = np.vstack((previous_recording[overlap_samples:], current_recording[:overlap_samples]))
+        recordings = [overlap_recording, current_recording]
+    else:
+        recordings = [current_recording]
+    return recordings
+
 # main
 def main():
     # settings & initilaization
     sd.default.samplerate = sample_rate
     sd.default.channels = 1
+
     # plotting
     fig, axes = initialize_visualizations()
 
@@ -121,20 +137,13 @@ def main():
 
 
     # start recording
-    previous_recording = None
-    overlap_recording = None
-    current_recording = None
+    recordings = []
 
     while True:
-        previous_recording = current_recording
-        current_recording = sd.rec(num_samples)
-
-        recordings = [current_recording]
-        if previous_recording is not None:
-            overlap_recording = np.vstack((previous_recording[overlap_samples:], current_recording[:overlap_samples]))
-            recordings = [overlap_recording, current_recording]
+        record_thread = ThreadWithReturnValue(target=record_thread_function, args=(sd, num_samples, recordings))
+        record_thread.start()
         
-        for recording in recordings:
+        for recording_index, recording in enumerate(recordings):
             # process both the new recording and the overlap with the previous
             # get spectrogram:
             spectrogram = extract_features(recording.flatten())
@@ -152,7 +161,7 @@ def main():
                     sound_info['predicted_class'] = class_predictions_sorted[0][0]
                     sound_info['probabilities'] = predictions
                     sound_info['predictions_sorted'] = class_predictions_sorted
-                    sound_info['name'] = '{}_{}'.format(datetime_string(), sound_info['predicted_class'])
+                    sound_info['name'] = '{}_{}'.format(datetime_string(recording_index * sample_length_sec), sound_info['predicted_class'])
                     sound_info['audio_filepath'] = os.path.join(store_session['folder'], '{}.wav'.format(sound_info['name']))
                     librosa.output.write_wav(sound_info['audio_filepath'], recording, sample_rate)
                     
@@ -160,25 +169,20 @@ def main():
                     with open(store_session['json_filepath'], 'w') as f:
                         json.dump(store_session, f, indent=4)
 
+            # visualize only the new recording
+            print('{}m {}'.format(recording_index, len(recordings)-1))
+            if recording_index == len(recordings) - 1:
+                update_visualizations(
+                    fig, axes,
+                    volumes, spectrogram_array,
+                    predictions, class_names,
+                    args.threshold, sample_length_sec,
+                    stop_all, start_recording,
+                    store_sounds
+                )
 
-        # visualize only the new recording
-        update_visualizations(
-            fig, axes,
-            volumes, spectrogram_array,
-            predictions, class_names,
-            args.threshold, sample_length_sec,
-            stop_all, start_recording,
-            store_sounds
-        )
-
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print('#### Top 3 ####')
-        for i in range(3):
-            print('{}) {:.0%}: {}'.format(i, class_predictions_sorted[i][1], class_predictions_sorted[i][0]))
-
-        print('')
-
-        sd.wait()
+        # wait for recording to finish:
+        recordings = record_thread.join()
 
 if __name__ == "__main__":
     main()
